@@ -10,7 +10,7 @@ from flask_paginate import Pagination
 from nyaa import models
 from nyaa.extensions import db
 from nyaa.search import (DEFAULT_MAX_SEARCH_RESULT, DEFAULT_PER_PAGE, SERACH_PAGINATE_DISPLAY_MSG,
-                         _generate_query_string, search_db, search_elastic)
+                         _generate_query_string, search_db, search_db_baked, search_elastic)
 from nyaa.utils import chain_get
 from nyaa.views.account import logout
 
@@ -167,7 +167,7 @@ def home(rss):
         else:
             rss_query_string = _generate_query_string(
                 search_term, category, quality_filter, user_name)
-            max_results = min(max_search_results, query_results['hits']['total'])
+            max_results = min(max_search_results, query_results['hits']['total']['value'])
             # change p= argument to whatever you change page_parameter to or pagination breaks
             pagination = Pagination(p=query_args['page'], per_page=results_per_page,
                                     total=max_results, bs_version=3, page_parameter='p',
@@ -186,7 +186,11 @@ def home(rss):
         else:  # Otherwise, use db search for everything
             query_args['term'] = search_term or ''
 
-        query = search_db(**query_args)
+        if app.config['USE_BAKED_SEARCH']:
+            query = search_db_baked(**query_args)
+        else:
+            query = search_db(**query_args)
+
         if render_as_rss:
             return render_rss('Home', query, use_elastic=False, magnet_links=use_magnet_links)
         else:
